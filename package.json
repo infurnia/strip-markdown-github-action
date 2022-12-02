@@ -1,0 +1,23 @@
+{
+  "name": "strip-markdown-github-action",
+  "version": "1.0.0",
+  "description": "Github Action for stripping down markdown to text",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infurnia/strip-markdown-github-action.git"
+  },
+  "author": "dishank-infurnia",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/infurnia/strip-markdown-github-action/issues"
+  },
+  "homepage": "https://github.com/infurnia/strip-markdown-github-action",
+  "dependencies": {
+    "@actions/core": "^1.9.1",
+    "remove-markdown": "^0.5.0"
+  }
+}

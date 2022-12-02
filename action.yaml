@@ -1,0 +1,10 @@
+name: 'Strip Markdown Github Action'
+description: 'Strip markdown to text'
+author: 'dishank-infurnia'
+inputs:
+  markdown:
+    description: 'Markdown to be converted to text'
+    required: true
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
