@@ -5,6 +5,18 @@ inputs:
   markdown:
     description: 'Markdown to be converted to text'
     required: true
+  jiraEmail:
+    description: 'Jira Email for jira integration'
+    required: true
+  jiraEmail:
+    description: 'Jira API token for jira integration'
+    required: true
+  jiraBaseUrl: 
+    description: 'Jira Cloud base url'
+    required: true
+  releaseEnv:
+    description: 'Environment of release for Jira'
+    required: true
 runs:
   using: 'node16'
   main: 'dist/index.js'

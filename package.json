@@ -18,6 +18,7 @@
   "homepage": "https://github.com/infurnia/strip-markdown-github-action",
   "dependencies": {
     "@actions/core": "^1.9.1",
-    "remove-markdown": "^0.5.0"
+    "jira.js": "^2.16.0",
+    "slackify-markdown": "^4.3.1"
   }
 }
