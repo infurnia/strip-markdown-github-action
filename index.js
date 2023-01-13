@@ -19,7 +19,12 @@ const jiraWorkflowOrder = ["To Do", "In Progress", "Dev", "Stage", "Preprod", "D
 
 const findJiraTicketIds = async (text) => {
     const ticketPattern = /\[[A-Z]{2,}-\d+\]/g;
-    const matches = text.match(ticketPattern).map(x => {return x.slice(1, -1)});
+    let matches = text.match(ticketPattern)
+    if(matches) {
+        matches = matches.map(x => {return x.slice(1, -1)});
+    } else {
+        matches = [];
+    }
     return matches;
 }
 
