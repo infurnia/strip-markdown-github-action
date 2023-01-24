@@ -85668,7 +85668,8 @@ const fetchJiraTicketInfo = async (ticketID, jiraClient) => {
 
 const AddJiraInfoToReleaseNotes = async (notes, jiraInfo) => {
     const jiraInNotes = `\n[↗️${jiraInfo.id}](${jiraInfo.link}) ${jiraInfo.summary}`;
-    notes = notes.replaceAll(`[${jiraInfo.id}]`, jiraInNotes);
+    notes = notes.replace(`[${jiraInfo.id}]`, jiraInNotes);
+    notes = notes.replaceAll(`[${jiraInfo.id}]`, "");
     return notes;
 }
 
