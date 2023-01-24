@@ -85702,6 +85702,12 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
 
 }
 
+const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, jiraClient) => {
+    const ticketId = jiraInfo["id"];
+    await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
+    console.log(`[+] assigned release to jira ${ticketId}`)
+}
+
 const main = async () => {
     try {
         let markdown = core.getInput('markdown');
@@ -85709,6 +85715,7 @@ const main = async () => {
         const jiraApiToken = core.getInput('jiraApiToken');
         const jiraBaseUrl = core.getInput('jiraBaseUrl');
         const releaseEnv = core.getInput('releaseEnv');
+        const jiraReleaseID = core.getInput('jiraReleaseID');
 
         const jiraClient = new Version3Client({
             host: jiraBaseUrl,
@@ -85731,6 +85738,10 @@ const main = async () => {
 
                 // Move the jira ticket to correct status
                 await moveJiraTicket(jiraInfo, releaseEnv, jiraClient);
+
+                if(jiraReleaseID != "None") {
+                    await assignReleaseToTicket(jiraInfo, jiraReleaseID, jiraClient);
+                }
             } else {
                 console.log(`[!] Could not find jira ticket ${jiraTicket}, ignoring it`);
             }
