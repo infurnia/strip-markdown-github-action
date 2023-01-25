@@ -35,7 +35,8 @@ const fetchJiraTicketInfo = async (ticketID, jiraClient) => {
             "id": ticketID,
             "summary": jira.fields.summary,
             "link": jiraClient.instance.defaults.baseURL + '/browse/' + ticketID,
-            "status": jira.fields.status.name
+            "status": jira.fields.status.name,
+            "releases": jira.fields.fixVersions
         }
     } catch {
         return {};
@@ -81,8 +82,13 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
 
 const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, jiraClient) => {
     const ticketId = jiraInfo["id"];
-    await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
-    console.log(`[+] assigned release to jira ${ticketId}`)
+    const existingReleases = jiraInfo["releases"];
+    if(existingReleases.length == 0){
+        await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
+        console.log(`[+] assigned release to jira ${ticketId}`)
+    } else {
+        console.log(`[!] release "${existingReleases[0].name}" already exists for jira ${ticketId}`);
+    }
 }
 
 const main = async () => {
