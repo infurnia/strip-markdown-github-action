@@ -85708,8 +85708,12 @@ const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, jiraClient) => {
     const ticketId = jiraInfo["id"];
     const existingReleases = jiraInfo["releases"];
     if(existingReleases.length == 0){
-        await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
-        console.log(`[+] assigned release to jira ${ticketId}`)
+        try {
+            await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
+            console.log(`[+] assigned release to jira ${ticketId}`)
+        } catch (err) {
+            console.log(`[!] Could not assign release to jira ${ticketId} ${jiraReleaseID} ${err}`);
+        }
     } else {
         console.log(`[!] release "${existingReleases[0].name}" already exists for jira ${ticketId}`);
     }
