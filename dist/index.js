@@ -85693,7 +85693,7 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
     // Ensure we are not moving it backwards
     const currentStatus = jiraInfo["status"];
 
-    if(jiraWorkflowOrder.indexOf(currentStatus) <= jiraWorkflowOrder.indexOf(moveTo)) {
+    if(jiraWorkflowOrder.indexOf(currentStatus) < jiraWorkflowOrder.indexOf(moveTo)) {
         let transitions = await jiraClient.issues.getTransitions({issueIdOrKey: ticketId});
         transitions = transitions["transitions"];
         const transitionId = transitions.filter(x => x.name.includes(moveTo))[0].id;
@@ -85704,13 +85704,16 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
 
 }
 
-const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, jiraClient) => {
+const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, releaseEnv, jiraClient) => {
     const ticketId = jiraInfo["id"];
     const existingReleases = jiraInfo["releases"];
     if(existingReleases.length == 0){
         try {
-            await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}]}})
+            let new_label = `${jiraInfo["new_release_name"]}_${releaseEnv}_cicd`;
+            new_label = new_label.replaceAll(" ", "_");
+            await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}], labels: [new_label]}});
             console.log(`[+] assigned release to jira ${ticketId}`)
+            console.log(`[+] assigned label ${new_label} to jira ${ticketId}`)
         } catch (err) {
             console.log(`[!] Could not assign release to jira ${ticketId} ${jiraReleaseID} ${err}`);
         }
@@ -85738,6 +85741,13 @@ const main = async () => {
             }
         });
 
+        let versionInfo = "None";
+        let projectInfo = "None";
+        if(jiraReleaseID != "None") {
+            versionInfo = await jiraClient.projectVersions.getVersion(jiraReleaseID);
+            projectInfo = await jiraClient.projects.getProject({ projectIdOrKey: versionInfo.projectId });
+        }
+
         jiraTicketIds = await findJiraTicketIds(markdown);
         for(const jiraTicket of jiraTicketIds) {
             // Find jira info
@@ -85751,15 +85761,21 @@ const main = async () => {
                 await moveJiraTicket(jiraInfo, releaseEnv, jiraClient);
 
                 if(jiraReleaseID != "None") {
-                    await assignReleaseToTicket(jiraInfo, jiraReleaseID, jiraClient);
+                    jiraInfo["new_release_name"] = versionInfo.name;
+                    await assignReleaseToTicket(jiraInfo, jiraReleaseID, releaseEnv, jiraClient);
                 }
             } else {
                 console.log(`[!] Could not find jira ticket ${jiraTicket}, ignoring it`);
             }
         }
+        if(jiraReleaseID != "None") {
+            let releaseLink = `${jiraBaseUrl}/projects/${projectInfo.key}/versions/${jiraReleaseID}`;
+            console.log(`[*] Jira Release link is: ${releaseLink}`)
+            markdown = `Jira Release Link: ${releaseLink}\n` + markdown;
+        }
 
         markdown = await beautifyNotes(markdown);
-        const slackifyMarkdown =removeMd(markdown);
+        const slackifyMarkdown = removeMd(markdown);
         core.setOutput('text', slackifyMarkdown);
         process.exit(0);
 
