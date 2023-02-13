@@ -36,7 +36,8 @@ const fetchJiraTicketInfo = async (ticketID, jiraClient) => {
             "summary": jira.fields.summary,
             "link": jiraClient.instance.defaults.baseURL + '/browse/' + ticketID,
             "status": jira.fields.status.name,
-            "releases": jira.fields.fixVersions
+            "releases": jira.fields.fixVersions,
+            "labels": jira.fields.labels
         }
     } catch {
         return {};
@@ -83,11 +84,12 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
 const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, releaseEnv, jiraClient) => {
     const ticketId = jiraInfo["id"];
     const existingReleases = jiraInfo["releases"];
+    const existingLabels = jiraInfo["labels"];
     if(existingReleases.length == 0){
         try {
             let new_label = `${jiraInfo["new_release_name"]}_${releaseEnv}_cicd`;
             new_label = new_label.replaceAll(" ", "_");
-            await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}], labels: [new_label]}});
+            await jiraClient.issues.editIssue({issueIdOrKey: ticketId, fields: {fixVersions: [{"id": jiraReleaseID}], labels: [new_label, ...existingLabels]}});
             console.log(`[+] assigned release to jira ${ticketId}`)
             console.log(`[+] assigned label ${new_label} to jira ${ticketId}`)
         } catch (err) {
