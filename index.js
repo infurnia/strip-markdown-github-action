@@ -70,15 +70,18 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
     // Ensure we are not moving it backwards
     const currentStatus = jiraInfo["status"];
 
-    if(jiraWorkflowOrder.indexOf(currentStatus) < jiraWorkflowOrder.indexOf(moveTo)) {
-        let transitions = await jiraClient.issues.getTransitions({issueIdOrKey: ticketId});
-        transitions = transitions["transitions"];
-        const transitionId = transitions.filter(x => x.name.includes(moveTo))[0].id;
-        await jiraClient.issues.doTransition({issueIdOrKey: ticketId, "transition": {"id": transitionId}});
-    } else {
-        console.log(`[!] Cannot move Jira Ticket from ${currentStatus} to ${moveTo}. The order is violated`);
+    try {
+        if(jiraWorkflowOrder.indexOf(currentStatus) < jiraWorkflowOrder.indexOf(moveTo)) {
+            let transitions = await jiraClient.issues.getTransitions({issueIdOrKey: ticketId});
+            transitions = transitions["transitions"];
+            const transitionId = transitions.filter(x => x.name.includes(moveTo))[0].id;
+            await jiraClient.issues.doTransition({issueIdOrKey: ticketId, "transition": {"id": transitionId}});
+        } else {
+            console.log(`[!] Cannot move Jira Ticket from ${currentStatus} to ${moveTo}. The order is violated`);
+        }
+    } catch {
+        console.log(`[!] Some error occured while moving ticket ${ticketId}`);
     }
-
 }
 
 const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, releaseEnv, jiraClient) => {
