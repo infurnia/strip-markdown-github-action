@@ -14,6 +14,9 @@ inputs:
   jiraBaseUrl: 
     description: 'Jira Cloud base url'
     required: true
+  jiraSprintID:
+    description: 'Jira sprint ID'
+    default: 'None'
   jiraReleaseID:
     description: 'Jira release ID'
     default: 'None'

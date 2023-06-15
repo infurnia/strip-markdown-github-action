@@ -85623,7 +85623,7 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 const core = __nccwpck_require__(9935);
-const { Version3Client } = __nccwpck_require__(87968);
+const { Version3Client, AgileClient } = __nccwpck_require__(87968);
 const removeMd = __nccwpck_require__(91509);
 
 const releaseEmojis = {
@@ -85636,7 +85636,7 @@ const releaseEmojis = {
     "Styles": "🎨",
     "Tests": "✅",
     "Build System": "👷",
-    "Continuous Integration": "💚",
+    "Continuous Integration": "🔁",
 }
 
 const jiraWorkflowOrder = ["To Do", "In Progress", "Dev", "Stage", "Preprod", "Done"];
@@ -85694,15 +85694,31 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
     // Ensure we are not moving it backwards
     const currentStatus = jiraInfo["status"];
 
-    if(jiraWorkflowOrder.indexOf(currentStatus) < jiraWorkflowOrder.indexOf(moveTo)) {
-        let transitions = await jiraClient.issues.getTransitions({issueIdOrKey: ticketId});
-        transitions = transitions["transitions"];
-        const transitionId = transitions.filter(x => x.name.includes(moveTo))[0].id;
-        await jiraClient.issues.doTransition({issueIdOrKey: ticketId, "transition": {"id": transitionId}});
-    } else {
-        console.log(`[!] Cannot move Jira Ticket from ${currentStatus} to ${moveTo}. The order is violated`);
+    try {
+        if(jiraWorkflowOrder.indexOf(currentStatus) < jiraWorkflowOrder.indexOf(moveTo)) {
+            let transitions = await jiraClient.issues.getTransitions({issueIdOrKey: ticketId});
+            transitions = transitions["transitions"];
+            const transitionId = transitions.filter(x => x.name.includes(moveTo))[0].id;
+            await jiraClient.issues.doTransition({issueIdOrKey: ticketId, "transition": {"id": transitionId}});
+        } else {
+            console.log(`[!] Cannot move Jira Ticket from ${currentStatus} to ${moveTo}. The order is violated`);
+        }
+    } catch {
+        console.log(`[!] Some error occured while moving ticket ${ticketId}`);
     }
+}
 
+const assignSprintToTickets = async (jiraTicketIds, jiraSprintID, jiraAgileClient) => {
+    const batch = 50;
+    for(let i = 0; i < jiraTicketIds.length; i += batch) {
+        let tickets = jiraTicketIds.slice(i, i + batch);
+        try {
+            await jiraAgileClient.sprint.moveIssuesToSprintAndRank({sprintId: jiraSprintID, issues: tickets});
+            console.log(`[+] assigned sprint ${jiraSprintID} to jira tickets ${JSON.stringify(tickets)}`)
+        } catch (err) {
+            console.log(`[!] Could not assign sprint to jira ${JSON.stringify(tickets)} ${jiraSprintID} ${err}`);
+        }
+    }
 }
 
 const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, releaseEnv, jiraClient) => {
@@ -85731,9 +85747,20 @@ const main = async () => {
         const jiraApiToken = core.getInput('jiraApiToken');
         const jiraBaseUrl = core.getInput('jiraBaseUrl');
         const releaseEnv = core.getInput('releaseEnv');
+        const jiraSprintID = core.getInput('jiraSprintID');
         const jiraReleaseID = core.getInput('jiraReleaseID');
 
         const jiraClient = new Version3Client({
+            host: jiraBaseUrl,
+            authentication: {
+                basic: {
+                    email: jiraEmail,
+                    apiToken: jiraApiToken
+                }
+            }
+        });
+
+        const jiraAgileClient = new AgileClient({
             host: jiraBaseUrl,
             authentication: {
                 basic: {
@@ -85748,6 +85775,14 @@ const main = async () => {
         if(jiraReleaseID != "None") {
             versionInfo = await jiraClient.projectVersions.getVersion(jiraReleaseID);
             projectInfo = await jiraClient.projects.getProject({ projectIdOrKey: versionInfo.projectId });
+        }
+        let sprintInfo = "None";
+        if(jiraSprintID != "None") {
+            try {
+                sprintInfo = await jiraAgileClient.sprint.getSprint({sprintId: jiraSprintID});
+            } catch(e) {
+                console.log("could not connect to jira agile: ", e);
+            } 
         }
 
         jiraTicketIds = await findJiraTicketIds(markdown);
@@ -85770,11 +85805,25 @@ const main = async () => {
                 console.log(`[!] Could not find jira ticket ${jiraTicket}, ignoring it`);
             }
         }
+        if(jiraSprintID != "None") {
+            await assignSprintToTickets(jiraTicketIds, jiraSprintID, jiraAgileClient);
+        }
+        let jiraReleaseInNotes = "";
         if(jiraReleaseID != "None") {
             let releaseLink = `${jiraBaseUrl}/projects/${projectInfo.key}/versions/${jiraReleaseID}`;
-            console.log(`[*] Jira Release link is: ${releaseLink}`)
-            markdown = `Jira Release Link: ${releaseLink}\n` + markdown;
+            let releaseName = versionInfo.name;
+            jiraReleaseInNotes = `**Release**:    [${releaseName}](${releaseLink})`;
+            console.log(`[*] Jira Release: ${releaseName} -> ${releaseLink}`);
         }
+
+        let jiraSprintInNotes = "";
+        if(jiraSprintID != "None") {
+            let sprintLink = `${jiraBaseUrl}/jira/software/c/projects/INFURNIA/boards/21?sprint=${jiraSprintID}`;
+            let sprintName = sprintInfo.name;
+            jiraSprintInNotes = `**Sprint**:    [${sprintName}](${sprintLink})`;
+            console.log(`[*] Jira Sprint: ${sprintName} -> ${sprintLink}`);
+        }
+        markdown = jiraSprintInNotes + '\n' + jiraReleaseInNotes + '\n' + markdown;
 
         markdown = await beautifyNotes(markdown);
         const slackifyMarkdown = removeMd(markdown);
