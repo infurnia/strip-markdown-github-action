@@ -1,5 +1,5 @@
 const core = require('@actions/core');
-const { Version3Client } = require('jira.js');
+const { Version3Client, AgileClient } = require('jira.js');
 const removeMd = require('slackify-markdown');
 
 const releaseEmojis = {
@@ -12,7 +12,7 @@ const releaseEmojis = {
     "Styles": "🎨",
     "Tests": "✅",
     "Build System": "👷",
-    "Continuous Integration": "💚",
+    "Continuous Integration": "🔁",
 }
 
 const jiraWorkflowOrder = ["To Do", "In Progress", "Dev", "Stage", "Preprod", "Done"];
@@ -84,6 +84,19 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
     }
 }
 
+const assignSprintToTickets = async (jiraTicketIds, jiraSprintID, jiraAgileClient) => {
+    const batch = 50;
+    for(let i = 0; i < jiraTicketIds.length; i += batch) {
+        let tickets = jiraTicketIds.slice(i, i + batch);
+        try {
+            await jiraAgileClient.sprint.moveIssuesToSprintAndRank({sprintId: jiraSprintID, issues: tickets});
+            console.log(`[+] assigned sprint ${jiraSprintID} to jira tickets ${JSON.stringify(tickets)}`)
+        } catch (err) {
+            console.log(`[!] Could not assign sprint to jira ${JSON.stringify(tickets)} ${jiraSprintID} ${err}`);
+        }
+    }
+}
+
 const assignReleaseToTicket = async (jiraInfo, jiraReleaseID, releaseEnv, jiraClient) => {
     const ticketId = jiraInfo["id"];
     const existingReleases = jiraInfo["releases"];
@@ -110,9 +123,20 @@ const main = async () => {
         const jiraApiToken = core.getInput('jiraApiToken');
         const jiraBaseUrl = core.getInput('jiraBaseUrl');
         const releaseEnv = core.getInput('releaseEnv');
+        const jiraSprintID = core.getInput('jiraSprintID');
         const jiraReleaseID = core.getInput('jiraReleaseID');
 
         const jiraClient = new Version3Client({
+            host: jiraBaseUrl,
+            authentication: {
+                basic: {
+                    email: jiraEmail,
+                    apiToken: jiraApiToken
+                }
+            }
+        });
+
+        const jiraAgileClient = new AgileClient({
             host: jiraBaseUrl,
             authentication: {
                 basic: {
@@ -127,6 +151,14 @@ const main = async () => {
         if(jiraReleaseID != "None") {
             versionInfo = await jiraClient.projectVersions.getVersion(jiraReleaseID);
             projectInfo = await jiraClient.projects.getProject({ projectIdOrKey: versionInfo.projectId });
+        }
+        let sprintInfo = "None";
+        if(jiraSprintID != "None") {
+            try {
+                sprintInfo = await jiraAgileClient.sprint.getSprint({sprintId: jiraSprintID});
+            } catch(e) {
+                console.log("could not connect to jira agile: ", e);
+            } 
         }
 
         jiraTicketIds = await findJiraTicketIds(markdown);
@@ -149,11 +181,25 @@ const main = async () => {
                 console.log(`[!] Could not find jira ticket ${jiraTicket}, ignoring it`);
             }
         }
+        if(jiraSprintID != "None") {
+            await assignSprintToTickets(jiraTicketIds, jiraSprintID, jiraAgileClient);
+        }
+        let jiraReleaseInNotes = "";
         if(jiraReleaseID != "None") {
             let releaseLink = `${jiraBaseUrl}/projects/${projectInfo.key}/versions/${jiraReleaseID}`;
-            console.log(`[*] Jira Release link is: ${releaseLink}`)
-            markdown = `Jira Release Link: ${releaseLink}\n` + markdown;
+            let releaseName = versionInfo.name;
+            jiraReleaseInNotes = `**Release**:    [${releaseName}](${releaseLink})`;
+            console.log(`[*] Jira Release: ${releaseName} -> ${releaseLink}`);
         }
+
+        let jiraSprintInNotes = "";
+        if(jiraSprintID != "None") {
+            let sprintLink = `${jiraBaseUrl}/jira/software/c/projects/INFURNIA/boards/21?sprint=${jiraSprintID}`;
+            let sprintName = sprintInfo.name;
+            jiraSprintInNotes = `**Sprint**:    [${sprintName}](${sprintLink})`;
+            console.log(`[*] Jira Sprint: ${sprintName} -> ${sprintLink}`);
+        }
+        markdown = jiraSprintInNotes + '\n' + jiraReleaseInNotes + '\n' + markdown;
 
         markdown = await beautifyNotes(markdown);
         const slackifyMarkdown = removeMd(markdown);
