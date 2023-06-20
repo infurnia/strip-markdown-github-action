@@ -85709,7 +85709,7 @@ const moveJiraTicket = async (jiraInfo, releaseEnv, jiraClient) => {
 }
 
 const assignSprintToTickets = async (jiraTicketIds, jiraSprintID, jiraAgileClient) => {
-    const batch = 50;
+    const batch = 20;
     for(let i = 0; i < jiraTicketIds.length; i += batch) {
         let tickets = jiraTicketIds.slice(i, i + batch);
         try {
