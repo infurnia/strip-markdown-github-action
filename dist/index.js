@@ -85750,6 +85750,8 @@ const main = async () => {
         const jiraSprintID = core.getInput('jiraSprintID');
         const jiraReleaseID = core.getInput('jiraReleaseID');
 
+        const any_release_points = markdown.includes("*");
+
         const jiraClient = new Version3Client({
             host: jiraBaseUrl,
             authentication: {
@@ -85828,6 +85830,7 @@ const main = async () => {
         markdown = await beautifyNotes(markdown);
         const slackifyMarkdown = removeMd(markdown);
         core.setOutput('text', slackifyMarkdown);
+        core.setOutput('any_release_points', any_release_points);
         process.exit(0);
 
     } catch (error) {
